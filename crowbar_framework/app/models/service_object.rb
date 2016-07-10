@@ -1005,6 +1005,9 @@ class ServiceObject
     role_map = new_deployment["element_states"]
     role_map = {} unless role_map
 
+    # List of all *new* nodes which will be changed (sans deleted ones)
+    all_nodes = new_elements.values.flatten
+
     # deployment["element_order"] tells us which order the various
     # roles should be applied, and deployment["elements"] tells us
     # which nodes each role should be applied to.  We need to "join
@@ -1021,9 +1024,6 @@ class ServiceObject
     #     :add    => [ role1_to_add,    ... ]
     #   }
     pending_node_actions = {}
-
-    # List of all *new* nodes which will be changed (sans deleted ones)
-    all_nodes = []
 
     # We'll build an Array where each item represents a batch of work,
     # and the batches must be performed sequentially in this order.
@@ -1128,8 +1128,6 @@ class ServiceObject
             end
 
             pre_cached_nodes[node_name] = node
-
-            all_nodes << node_name unless all_nodes.include?(node_name)
 
             # A new node that we did not know before
             unless old_nodes.include?(node_name)
