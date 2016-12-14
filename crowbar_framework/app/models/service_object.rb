@@ -539,10 +539,10 @@ class ServiceObject
   # FIXME: most of these can be validations on the model itself,
   # preferrably refactored into Validator classes.
   def save_proposal!(prop, options = {})
-    options.reverse_merge!(validate_after_save: true)
+    options.reverse_merge!(validate: true, validate_after_save: true)
     clean_proposal(prop.raw_data)
-    validate_proposal(prop.raw_data)
-    validate_proposal_elements(prop.elements)
+    validate_proposal(prop.raw_data) if options[:validate]
+    validate_proposal_elements(prop.elements) if options[:validate]
     prop.latest_applied = false
     prop.save
     validate_proposal_after_save(prop.raw_data) if options[:validate_after_save]
@@ -554,6 +554,7 @@ class ServiceObject
   def proposal_commit(inst, options = {})
     options.reverse_merge!(
       in_queue: false,
+      validate: true,
       validate_after_save: true
     )
 
@@ -568,7 +569,7 @@ class ServiceObject
       begin
         # Put mark on the wall
         prop["deployment"][@bc_name]["crowbar-committing"] = true
-        save_proposal!(prop, validate_after_save: options[:validate_after_save])
+        save_proposal!(prop, validate: options[:validate], validate_after_save: options[:validate_after_save])
         response = active_update(prop.raw_data, inst, options[:in_queue])
       rescue Chef::Exceptions::ValidationFailed => e
         @logger.error ([e.message] + e.backtrace).join("\n")
