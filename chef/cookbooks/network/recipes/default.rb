@@ -90,7 +90,6 @@ execute "enable netfilter for bridges" do
   subscribes :run, resources(cookbook_file: "modprobe-bridge.conf"), :delayed
 end
 
-provisioner = search(:node, "roles:provisioner-server")[0]
 conduit_map = Barclamp::Inventory.build_node_map(node)
 Chef::Log.debug("Conduit mapping for this node:  #{conduit_map.inspect}")
 route_pref = 10000
@@ -425,12 +424,17 @@ if ["delete","reset"].member?(node["state"])
 end
 
 # Wait for the administrative network to come back up.
-Chef::Log.info("Checking we can ping #{provisioner.address.addr}; " +
-               "will wait up to 60 seconds") if provisioner
-60.times do
-  break if ::Kernel.system("ping -c 1 -w 1 -q #{provisioner.address.addr} > /dev/null")
-  sleep 1
-end if provisioner
+provisioner_config = Barclamp::Config.load("core", "provisioner")
+provisioner_address = provisioner_config["server"]
+
+if provisioner_address
+  Chef::Log.info("Checking we can ping #{provisioner_address}; " +
+                 "will wait up to 60 seconds")
+  60.times do
+    break if ::Kernel.system("ping -c 1 -w 1 -q #{provisioner_address} > /dev/null")
+    sleep 1
+  end
+end
 
 node.set["crowbar_wall"] ||= Mash.new
 node.set["crowbar_wall"]["network"] ||= Mash.new
