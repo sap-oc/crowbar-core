@@ -37,4 +37,60 @@ namespace :crowbar do
     RAILS_ENV = "production"
     Rake::Task["crowbar:schema_migrate"].invoke(args[:barclamps])
   end
+
+  desc "Show the current proposal migration status"
+  task :schema_migrate_status, [:barclamps] => :environment do |t, args|
+    args.with_defaults(barclamps: nil)
+
+    require "schema_migration"
+    require "barclamp_catalog"
+
+    if args[:barclamps].nil?
+      barclamps = BarclampCatalog.barclamps.keys.join(" ")
+    else
+      barclamps = args[:barclamps]
+    end
+
+    printf "%-20s %-20s %s\n", "*barclamp*", "*latest revision*", "*proposals revision*"
+    barclamps.split.sort.each do |bc_name|
+      latest_schema_revision, latest_proposals_revision = \
+                              SchemaMigration.get_barclamp_current_deployment_revison bc_name
+      unless latest_proposals_revision.nil?
+        proposals_rev = latest_proposals_revision.sort.collect do |prop|
+          "#{prop[:name]}:#{prop[:revision]}"
+        end
+        printf "%-20s %-20s %s\n", bc_name, latest_schema_revision, proposals_rev.join(" ")
+      end
+    end
+  end
+
+  desc "Update configuration database used by nodes, from applied proposals"
+  task :update_config_db, [:barclamps] => :environment do |t, args|
+    args.with_defaults(barclamps: "all")
+    barclamps = args[:barclamps].split(" ")
+
+    if barclamps.include?("all")
+      barclamps = BarclampCatalog.barclamps.keys
+    end
+
+    barclamps.each do |barclamp|
+      begin
+        cls = ServiceObject.get_service(barclamp)
+      rescue NameError
+        # catalog may contain barclamps which don't have services
+        next
+      end
+
+      next unless cls.method_defined?(:save_config_to_databag)
+
+      service = cls.new(Rails.logger)
+
+      proposals = Proposal.where(barclamp: barclamp)
+      proposals.each do |proposal|
+        role = proposal.role
+        next if role.nil?
+        service.save_config_to_databag(nil, role)
+      end
+    end
+  end
 end
