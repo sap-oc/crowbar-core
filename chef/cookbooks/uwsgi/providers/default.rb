@@ -3,11 +3,10 @@ action :enable do
   package "python-pip"
   package "python-dev"
 
-  provisioner = search(:node, "roles:provisioner-server").first
-  proxy_addr = provisioner[:fqdn]
-  proxy_port = provisioner[:provisioner][:web_port]
+  provisioner_config = BarclampLibrary::Barclamp::Config.load("core", "provisioner")
+  index_url = "#{provisioner_config['root_url']}/files/pip_cache/simple/"
 
-  execute "pip install --index-url http://#{proxy_addr}:#{proxy_port}/files/pip_cache/simple/ uwsgi" do
+  execute "pip install --index-url #{index_url} uwsgi" do
     not_if "pip freeze 2>&1 | grep -i uwsgi"
   end
 

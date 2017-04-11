@@ -15,16 +15,17 @@
 # limitations under the License.
 #
 
+local_admin_address = Barclamp::Inventory.get_network_by_type(node, "admin").address
+
 unless Chef::Config[:solo]
-  env_filter = " AND environment:#{node[:ntp][:config][:environment]}"
-  servers = search(:node, "roles:ntp\\-server#{env_filter}")
+  ntp_config = Barclamp::Config.load("core", "ntp")
+  # duplicate as we may modify it later on to remove our address and to include external servers
+  ntp_servers = ntp_config["servers"].dup || []
 else
-  servers = []
+  ntp_servers = []
 end
-ntp_servers = []
-servers.each do |n|
-  ntp_servers.push n[:crowbar][:network][:admin][:address] if n.name != node.name
-end
+
+ntp_servers.reject! { |n| n == local_admin_address }
 if node["roles"].include?("ntp-server")
   ntp_servers += node[:ntp][:external_servers]
   is_server = true
@@ -65,18 +66,16 @@ else
 
   user "ntp"
 
-  admin_interface = Chef::Recipe::Barclamp::Inventory.get_network_by_type(node, "admin").address
-
   template "/etc/ntp.conf" do
     owner "root"
     group "root"
     mode 0644
     source "ntp.conf.erb"
     variables(ntp_servers: ntp_servers,
-            admin_interface: admin_interface,
-            is_server: is_server,
-            fudgevalue: 10,
-            driftfile: driftfile)
+              admin_interface: local_admin_address,
+              is_server: is_server,
+              fudgevalue: 10,
+              driftfile: driftfile)
     notifies :restart, "service[ntp]"
   end
 
