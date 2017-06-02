@@ -53,6 +53,24 @@ suse-12.1:
       url:
       smt_path: "SUSE/Updates/OpenStack-Cloud/6/x86_64/update"
       ask_on_error: false
+    suse-openstack-cloud-continuous-delivery-6-pool:
+      name: "SUSE-OpenStack-Cloud-Continuous-Delivery-6-Pool"
+      required: "optional"
+      repomd:
+        tag: "obsproduct://build.suse.de/SUSE:SLE-12-SP1:Update:Products:CloudCD6/suse-openstack-cloud-continuous-delivery/6/POOL/x86_64"
+        fingerprint: "FEAB 5025 39D8 46DB 2C09 61CA 70AF 9E81 39DB 7C82"
+      url:
+        smt_path: "SUSE/Products/OpenStack-Cloud/6-Continuous/x86_64/product"
+      ask_on_error: false
+    suse-openstack-cloud-continuous-delivery-6-updates:
+      name: "SUSE-OpenStack-Cloud-Continuous-Delivery-6-Updates"
+      required: "optional"
+      repomd:
+        tag: "obsrepository://build.suse.de/SUSE:Updates:OpenStack-Cloud:6-Continuous:x86_64/update"
+        fingerprint: "FEAB 5025 39D8 46DB 2C09 61CA 70AF 9E81 39DB 7C82"
+      url:
+      smt_path: "SUSE/Updates/OpenStack-Cloud/6-Continuous/x86_64/update"
+      ask_on_error: false
     sle12-sp1-ha-pool:
       name: "SLE12-SP1-HA-Pool"
       required: "optional"
