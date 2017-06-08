@@ -232,7 +232,8 @@ if not nodes.nil? and not nodes.empty?
       # files cannot be generated due to some error that happened during discovery.
       # Downside is that this may look like a discovery/reboot loop, but that's
       # better than crashing chef on the admin server.
-      append_line = "#{node[:provisioner][:sledgehammer_append_line]} crowbar.hostname=#{mnode[:fqdn]} crowbar.state=#{new_group}"
+      append_line = "#{node[:provisioner][:sledgehammer_append_line]} " \
+                    "crowbar.hostname=#{mnode[:fqdn]} crowbar.state=#{new_group}"
       install_name = new_group
       install_label = "Crowbar Discovery Image (#{new_group})"
       relative_to_pxelinux = "../"
