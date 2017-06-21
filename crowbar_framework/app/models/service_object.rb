@@ -1163,6 +1163,7 @@ class ServiceObject
 
     # Cache attributes that are useful later on
     pre_cached_nodes.each do |node_name, node|
+      next if node.nil?
       node_attr_cache[node_name] = {
         "alias" => node.alias,
         "windows" => node[:platform_family] == "windows",
