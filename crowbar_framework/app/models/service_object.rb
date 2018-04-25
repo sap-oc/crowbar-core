@@ -292,7 +292,7 @@ class ServiceObject
     [200, { versions: ["1.0"] }]
   end
 
-  def transition
+  def transition(inst, name, state)
     [200, {}]
   end
 
@@ -851,6 +851,19 @@ class ServiceObject
 
     if not elements.key?(role) or elements[role].length < n
       validation_error("Need at least #{n} #{role} node#{"s" if n > 1}.")
+    end
+  end
+
+  #
+  # Ensure that the proposal contains at least 2 nodes for role or a cluster
+  #
+  def validate_multiple_for_role_or_cluster(proposal, role)
+    elements = proposal["deployment"][@bc_name]["elements"]
+
+    if !elements.key?(role) ||
+        (elements[role].length < 2 &&
+         elements[role].none? { |e| is_cluster? e })
+      validation_error("Need at least 2 #{role} nodes or a cluster.")
     end
   end
 

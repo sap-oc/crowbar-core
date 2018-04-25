@@ -49,13 +49,23 @@ when "crowbar_upgrade"
 
   bash "disable_openstack_services" do
     code <<-EOF
-      for i in $(systemctl list-units openstack* --no-legend | cut -d" " -f1) \
-               drbd.service \
-               pacemaker.service;
+      for i in $(systemctl list-units openstack* --no-legend | cut -d" " -f1);
       do
         systemctl disable $i
       done
     EOF
+  end
+
+  ha = node["run_list_map"].key? "pacemaker-cluster-member"
+
+  service "drbd" do
+    action :disable
+    only_if { ha && node["drbd"] && node["drbd"]["rsc"] && node["drbd"]["rsc"].any? }
+  end
+
+  service "pacemaker" do
+    action :disable
+    only_if { ha }
   end
 
   # Disable crowbar-join
@@ -67,6 +77,27 @@ when "crowbar_upgrade"
   # Disable chef-client
   service "chef-client" do
     action [:disable, :stop]
+  end
+
+  # Remove current pre-upgrade constraints from locations,
+  # they will be added again in the later stage of an upgrade to control
+  # which nodes should not start services.
+  if ha && node[:pacemaker][:founder] == node[:fqdn]
+    cmd = "crm --display=plain conf show type:location"
+    locations = Mixlib::ShellOut.new(cmd).run_command.stdout
+    locations.split("location").each do |l|
+      next unless l.include? "pre-upgrade"
+
+      # keep the location but remove the pre-upgrade constraint
+      loc = l.sub(" and pre-upgrade ne true", "").lstrip
+      name = loc.split[0]
+      Chef::Log.info("pre-upgrade bit to be removed from location #{name}")
+
+      pacemaker_location name do
+        definition "location #{loc}"
+        action :update
+      end
+    end
   end
 
 when "prepare-os-upgrade"
