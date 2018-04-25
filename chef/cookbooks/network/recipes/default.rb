@@ -247,11 +247,14 @@ sorted_networks.each do |network|
     ifs[bond.name]["type"] = "bond"
     ifs[bond.name]["miimon"] = miimon
     ifs[bond.name]["xmit_hash_policy"] = xmit_hash_policy
-    # Also save miimon and xmit_hash_policy to the NIC object, since that is
-    # safe to change on the fly, and will be used to write the configuration
+    # Save miimon and xmit_hash_policy to the NIC object if they are different,
+    # since writing them causes the kernel to emit messages about setting them,
+    # and we want the information saved so it makes it into the configuration
     # files.
-    bond.miimon = miimon
-    bond.xmit_hash_policy = xmit_hash_policy
+    bond.miimon = miimon unless bond.miimon == miimon
+    unless bond.xmit_hash_policy == xmit_hash_policy
+      bond.xmit_hash_policy = xmit_hash_policy
+    end
     our_iface = bond
     node.set["crowbar"]["bond_list"] ||= {}
     if node["crowbar"]["bond_list"][bond.name] != ifs[bond.name]["slaves"]
@@ -646,6 +649,19 @@ when "suse"
   bash "wicked-ifup-all" do
     action :run
     code "wicked ifup all"
+    only_if { run_wicked_ifup }
+  end
+
+  # Running 'wicked ifup all' sometimes has an unwanted side effect of removing
+  # the default route, so we have to restore it here.
+  ruby_block "check-restore-default-route" do
+    block do
+      gateway = default_route[:gateway]
+      unless ::Kernel.system("ip route show dev #{default_route[:nic]} |grep -q default")
+        Chef::Log.info("Restoring default route via #{gateway} to #{default_route[:nic]}")
+        ::Kernel.system("ip route add default via #{gateway} dev #{default_route[:nic]}")
+      end
+    end
     only_if { run_wicked_ifup }
   end
 

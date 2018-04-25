@@ -60,6 +60,10 @@ provisioner_web = "http://#{admin_ip}:#{web_port}"
 dhcp_hosts_dir = node["provisioner"]["dhcp_hosts"]
 virtual_intfs = ["tap", "qbr", "qvo", "qvb", "brq", "ovs"]
 
+crowbar_node = node_search_with_cache("roles:crowbar").first
+crowbar_protocol = crowbar_node[:crowbar][:apache][:ssl] ? "https" : "http"
+crowbar_verify_ssl = !crowbar_node["crowbar"]["apache"]["insecure"]
+
 discovery_dir = "#{tftproot}/discovery"
 pxecfg_subdir = "bios/pxelinux.cfg"
 uefi_subdir = "efi"
@@ -290,7 +294,14 @@ filename = \"discovery/x86_64/bios/pxelinux.0\";
     end
 
     if mnode["uefi"] && mnode["uefi"]["boot"]["last_mac"]
-      append << "BOOTIF=01-#{mnode["uefi"]["boot"]["last_mac"].tr(":", "-")}"
+      # We know we configured dhcpd correctly to boot from the required
+      # interface and grub has this nice $net_default_mac variable that we can
+      # use here.
+      # We don't use the last_mac attribute as it may be wrong: the boot
+      # interface on discovery is not necessarily the one that will be used for
+      # the admin server. However what matters is that we last booted from a
+      # network interface (last_mac tells us that).
+      append << "BOOTIF=01-$net_default_mac"
     end
 
     case os
@@ -370,6 +381,16 @@ filename = \"discovery/x86_64/bios/pxelinux.0\";
         cloud_available = true if name.include? "Cloud"
       end
 
+      cpu_model = ""
+      if mnode.key?("cpu") && mnode[:cpu].length >= 1
+        case mnode[:cpu]["0"][:model_name]
+        when /^Intel\(R\)/
+          cpu_model = "intel"
+        when /^AuthenticAMD/
+          cpu_model = "amd"
+        end
+      end
+
       autoyast_template = mnode[:state] == "os-upgrading" ? "autoyast-upgrade" : "autoyast"
       template "#{node_cfg_dir}/autoyast.xml" do
         mode 0o644
@@ -378,6 +399,8 @@ filename = \"discovery/x86_64/bios/pxelinux.0\";
         group "root"
         variables(
           admin_node_ip: admin_ip,
+          crowbar_protocol: crowbar_protocol,
+          crowbar_verify_ssl: crowbar_verify_ssl,
           web_port: web_port,
           packages: packages,
           repos: repos,
@@ -392,6 +415,7 @@ filename = \"discovery/x86_64/bios/pxelinux.0\";
           platform: target_platform_distro,
           target_platform_version: target_platform_version,
           architecture: arch,
+          cpu_model: cpu_model,
           is_ses: storage_available && !cloud_available,
           crowbar_join: "#{os_url}/crowbar_join.sh",
           default_fs: mnode[:crowbar_wall][:default_fs] || "ext4",
